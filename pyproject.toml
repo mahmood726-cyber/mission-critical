@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mission-critical"
+version = "0.1.0"
+description = "Moon-mission-grade guards for scientific meta-analysis workflows."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-timeout>=2.0"]
+
+[project.scripts]
+diffmeta = "mission_critical.diffmeta.cli:main"
+provenance = "mission_critical.provenance.cli:main"
+baseline = "mission_critical.baseline.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mission_critical*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

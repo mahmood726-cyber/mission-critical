@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+
+# Demo-run artifacts (per-user state, not code)
+demo/corpus.json
+demo/prov.json
+demo/report.json
+
+# Real corpuses live outside this repo (point at via --store arg)
+*.baseline.json
+*.provenance.json
