@@ -8,7 +8,7 @@ from pathlib import Path
 
 from mission_critical.diffmeta.engine import (
     DEFAULT_TOLERANCE,
-    compare_binary_or,
+    compare,
 )
 
 
@@ -21,9 +21,19 @@ def main(argv: list[str] | None = None) -> int:
 
     cmp_p = sub.add_parser(
         "compare",
-        help="Run both engines on a 2x2 CSV; exit non-zero on divergence.",
+        help="Run both engines on a CSV; exit non-zero on divergence.",
     )
-    cmp_p.add_argument("csv", type=Path, help="CSV with columns ai, bi, ci, di.")
+    cmp_p.add_argument("csv", type=Path, help="CSV with required columns for the measure.")
+    cmp_p.add_argument(
+        "--measure", choices=["OR", "SMD", "GEN"], default="OR",
+        help="Effect measure (default OR). "
+             "OR needs ai/bi/ci/di; SMD needs n1i/m1i/sd1i/n2i/m2i/sd2i; "
+             "GEN needs yi/vi.",
+    )
+    cmp_p.add_argument(
+        "--method", choices=["FE", "DL", "REML", "HKSJ"], default="FE",
+        help="Pooling method (default FE). HKSJ uses REML tau^2 + Knapp-Hartung.",
+    )
     cmp_p.add_argument(
         "--tolerance", type=float, default=DEFAULT_TOLERANCE,
         help=f"Maximum allowed abs diff across fields (default {DEFAULT_TOLERANCE:g}).",
@@ -41,8 +51,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "compare":
         try:
-            result = compare_binary_or(
-                args.csv, tolerance=args.tolerance, rscript_path=args.rscript,
+            result = compare(
+                args.csv,
+                measure=args.measure, method=args.method,
+                tolerance=args.tolerance, rscript_path=args.rscript,
             )
         except (FileNotFoundError, ValueError, RuntimeError) as e:
             print(f"diffmeta error: {e}", file=sys.stderr)
@@ -51,15 +63,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             print(json.dumps(result.to_dict(), indent=2))
         else:
-            print(f"k = {result.python.k} studies")
-            print(f"Python:  log_or = {result.python.log_or:+.10f}  se = {result.python.se:.10f}")
-            print(f"R:       log_or = {result.r.log_or:+.10f}  se = {result.r.se:.10f}")
+            p = result.python
+            r = result.r
+            print(f"measure={result.measure}  method={result.method}  k={p.k}")
+            print(f"Python:  estimate = {p.estimate:+.10f}  se = {p.se:.10f}  tau2 = {p.tau2:.6g}")
+            print(f"R:       estimate = {r.estimate:+.10f}  se = {r.se:.10f}  tau2 = {r.tau2:.6g}")
             print(f"max abs diff: {result.max_abs_diff:.2e}  tolerance: {result.tolerance:.2e}")
             print("VERDICT:", "DIVERGES" if result.diverges else "AGREES")
             if result.diverges:
-                for field, d in result.field_diffs.items():
+                for field_name, d in result.field_diffs.items():
                     marker = "!" if d > result.tolerance else " "
-                    print(f"  {marker} {field}: {d:.2e}")
+                    print(f"  {marker} {field_name}: {d:.2e}")
         return 1 if result.diverges else 0
 
     return 2

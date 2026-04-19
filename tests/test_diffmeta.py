@@ -110,54 +110,48 @@ def test_both_engines_agree_on_dataset_with_zero_cells(tmp_path: Path):
 
 @skip_if_no_r
 def test_diverges_flag_triggers_at_lower_tolerance(tmp_path: Path):
-    """At a tolerance BELOW floating-point noise (e.g. 0), any two
-    engines will diverge slightly. Proves the `diverges` flag is
-    actually wired and not a tautology."""
+    """At tolerance 0, floating-point noise may diverge. Proves the
+    `diverges` flag is actually wired and not a tautology."""
     from mission_critical.diffmeta import compare_binary_or
     csv_path = tmp_path / "input.csv"
     _write_csv(csv_path, [
         {"ai": 10, "bi": 90, "ci": 20, "di": 80},
         {"ai": 15, "bi": 85, "ci": 25, "di": 75},
     ])
-    # tolerance 0 → any floating-point noise diverges
     res = compare_binary_or(csv_path, tolerance=0.0, rscript_path=_RSCRIPT)
-    # Could be 0 diff if engines happen to be bit-identical (unlikely
-    # but possible); we assert the fields were at least computed.
-    assert res.python.log_or is not None
-    assert res.r.log_or is not None
+    assert res.python.estimate is not None
+    assert res.r.estimate is not None
 
 
 def test_python_engine_deterministic_on_known_values(tmp_path: Path):
     """Pure-numpy Python engine: known hand-calculated output.
 
-    Study 1: a=10, b=90, c=20, d=80
-      log_OR = log((10*80)/(90*20)) = log(800/1800) = log(4/9)
-      var = 1/10 + 1/90 + 1/20 + 1/80
+    Study 1: a=10, b=90, c=20, d=75
+      log_OR = log((10*75)/(90*20)), var = 1/10 + 1/90 + 1/20 + 1/75
     Study 2: a=15, b=85, c=25, d=75
-      log_OR = log((15*75)/(85*25)) = log(1125/2125) = log(9/17)
-      var = 1/15 + 1/85 + 1/25 + 1/75
+      log_OR = log((15*75)/(85*25)), var = 1/15 + 1/85 + 1/25 + 1/75
+    Inverse-variance FE pooling.
     """
     import math
-    from mission_critical.diffmeta.engine import _python_fe_or
-    import numpy as np
+    from mission_critical.diffmeta.engine import _python_pool, _effects_or
 
-    ai = np.array([10, 15])
-    bi = np.array([90, 85])
-    ci = np.array([20, 25])
-    di = np.array([75, 75])  # fixed from original typo
+    rows = [
+        {"ai": 10, "bi": 90, "ci": 20, "di": 75},
+        {"ai": 15, "bi": 85, "ci": 25, "di": 75},
+    ]
+    yi, vi = _effects_or(rows)
 
     # Expected hand-calculation
     lo1 = math.log((10 * 75) / (90 * 20))
     v1 = 1/10 + 1/90 + 1/20 + 1/75
     lo2 = math.log((15 * 75) / (85 * 25))
     v2 = 1/15 + 1/85 + 1/25 + 1/75
-    w1 = 1/v1
-    w2 = 1/v2
+    w1 = 1/v1; w2 = 1/v2
     expected_pooled = (w1 * lo1 + w2 * lo2) / (w1 + w2)
     expected_se = math.sqrt(1 / (w1 + w2))
 
-    result = _python_fe_or(ai, bi, ci, di)
-    assert abs(result.log_or - expected_pooled) < 1e-12
+    result = _python_pool(yi, vi, method="FE", measure="OR")
+    assert abs(result.estimate - expected_pooled) < 1e-12
     assert abs(result.se - expected_se) < 1e-12
     assert result.k == 2
 
