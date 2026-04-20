@@ -46,8 +46,23 @@ def _is_numeric(value: Any) -> bool:
 def _is_nan(value: Any) -> bool:
     """True iff value is NaN. In extraction land NaN typically means
     'parse failed', which is semantically None — NOT a real data value.
-    Review P2-4."""
-    return isinstance(value, float) and math.isnan(value)
+    Review P2-4 (initial) + P2-R5 (generalize beyond Python float).
+
+    Covers:
+      - Python float NaN (`float('nan')`)
+      - numpy.nan (IS a Python float at runtime)
+      - Decimal('NaN') (separate type with its own .is_nan() method)
+    """
+    if isinstance(value, float):
+        return math.isnan(value)
+    # Decimal NaN doesn't inherit from float.
+    try:
+        from decimal import Decimal
+        if isinstance(value, Decimal):
+            return value.is_nan()
+    except ImportError:  # pragma: no cover — decimal is stdlib
+        pass
+    return False
 
 
 def _classify_change(old: Any, new: Any) -> ChangeClass:

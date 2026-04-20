@@ -10,6 +10,7 @@ from mission_critical.provenance.store import (
     ProvenanceStore,
     _classify,
     _classify_change,
+    _is_nan,
     _is_numeric,
 )
 
@@ -340,3 +341,26 @@ def test_classify_diffs_value_to_nan_is_null_transition(tmp_path: Path):
     records = store.classify_diffs("NCT00095238", {"HR": math.nan})
     assert len(records) == 1
     assert records[0].change_class == "null_transition"
+
+
+def test_is_nan_covers_decimal_nan():
+    """Review P2-R5: Decimal('NaN') doesn't inherit from float, so the
+    original `isinstance(v, float) and math.isnan(v)` check missed it.
+    Generalized _is_nan() now covers it."""
+    from decimal import Decimal
+    assert _is_nan(Decimal("NaN")) is True
+    assert _is_nan(Decimal("1.5")) is False
+    assert _is_nan(Decimal("0")) is False
+
+
+def test_classify_diffs_both_decimal_nan_absorbed(tmp_path: Path):
+    """End-to-end: two Decimal NaNs must absorb the same way two float
+    NaNs do."""
+    from decimal import Decimal
+    store = ProvenanceStore(tmp_path / "p.json")
+    store.add(
+        "NCT00095238", source="a", extractor="tool",
+        values={"HR": Decimal("NaN")},
+    )
+    records = store.classify_diffs("NCT00095238", {"HR": Decimal("NaN")})
+    assert records == []
