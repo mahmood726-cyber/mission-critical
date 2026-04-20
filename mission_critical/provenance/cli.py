@@ -69,6 +69,16 @@ def main(argv: list[str] | None = None) -> int:
         "--value", action="append", default=[], metavar="KEY=VALUE",
         required=True,
     )
+    diff_p.add_argument(
+        "--classify", action="store_true",
+        help="Tag each difference with a change class (added / "
+             "null_transition / type_changed / value_changed).",
+    )
+    diff_p.add_argument(
+        "--float-tol", type=float, default=0.0, metavar="EPS",
+        help="Absorb numeric drift within EPS as noise (no record emitted). "
+             "Only meaningful with --classify; default 0 (exact match).",
+    )
 
     unv_p = sub.add_parser("unverified", help="List entries that aren't human-verified.")
     unv_p.add_argument("--fail", action="store_true", help="Exit 1 if any unverified.")
@@ -137,6 +147,24 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as e:
             print(f"provenance error: {e}", file=sys.stderr)
             return 2
+        if args.classify:
+            try:
+                records = store.classify_diffs(
+                    args.identifier, new_vals, float_tol=args.float_tol,
+                )
+            except KeyError as e:
+                print(f"provenance error: {e}", file=sys.stderr)
+                return 2
+            if not records:
+                print("no differences")
+                return 0
+            print(f"DIFFS for {args.identifier}:")
+            for r in records:
+                print(
+                    f"  [{r.change_class:16s}] {r.key}: "
+                    f"{r.old_value!r} -> {r.new_value!r}"
+                )
+            return 1
         try:
             diffs = store.diff_values(args.identifier, new_vals)
         except KeyError as e:

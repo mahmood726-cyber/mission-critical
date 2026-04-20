@@ -103,19 +103,59 @@ Sentinel suite: 390 pass / 1 skip (was 354 pre-adapter).
 
 ---
 
-## 3. Full `soda-core` adoption for provenance drift
+## 3. Richer drift classification in `provenance diff` — SHIPPED 2026-04-18 (in place of `soda-core` adoption)
 
-### What this would replace
+### Status
 
-`provenance diff` — currently a hand-rolled per-key comparator.
+`soda-core` adoption was REJECTED after re-evaluation on 2026-04-18:
+the 80 MB of dep surface wasn't justified by actual scope (still
+flat key-value extraction, no CSV schema validation). Instead, the
+drift signals that soda-core would have provided semantically were
+added in-place via `classify_diffs()` (~60 LOC of stdlib).
 
-### Why deferred
+What shipped in `provenance/store.py`:
 
-Current implementation is 20 LOC and works. `soda-core` is 80 MB of
-dep surface for YAML-driven data-quality checks — overkill for
-flagging whether `NCT00095238.N` drifted from 8442 to 1807. Adopt
-only if provenance scope expands to CSV-level schema validation
-(columns, types, null counts), which isn't in scope today.
+- **`DriftRecord` dataclass** — frozen record carrying
+  `(key, old_value, new_value, change_class)`.
+- **`classify_diffs(identifier, new_values, *, float_tol=0.0)`** —
+  additive sibling to `diff_values`, returns a list of `DriftRecord`
+  categorized by change class:
+    - `added` — key wasn't in the stored entry
+    - `null_transition` — old or new is None (extraction loss / recovery)
+    - `type_changed` — type buckets differ (int↔float is NOT counted,
+      same numeric bucket; but int→str IS a type flip)
+    - `value_changed` — different value, same type bucket, not within
+      `float_tol`
+  Sub-threshold numeric drift is absorbed (no record emitted) when
+  `float_tol > 0`.
+- **CLI extension** — `provenance diff --classify` prints the change
+  class inline, `--float-tol EPS` absorbs numeric noise. Exit code
+  stays at 1 only when real (non-absorbed) drift is present.
+
+### Why this beats soda-core for our actual scope
+
+- Zero new deps. soda-core would add PyYAML + Python-on-SQLAlchemy +
+  Jinja2 + ruyaml + six + ~15 others.
+- Directly catches the `lessons.md#ct.gov-queries#negated-counts`
+  failure mode: "Not Randomized 1,807" silently overwriting N=5,050
+  is a `value_changed` record with known-good old value — exactly the
+  signal that soda's freshness/row-count-range checks would have
+  surfaced, but here it's ONE line of `--classify` output.
+- YAML-authored drift rules (soda's real selling point) aren't needed:
+  provenance rules ARE the extraction contract, and they live in code.
+
+### Revisit
+
+If provenance scope ever expands to per-study CSVs (columns, types,
+null counts, numeric histograms), re-evaluate. That's genuinely
+soda-core's strength. Today, still not it.
+
+### Tests
+
+18 new tests in `test_provenance.py` covering each class, tolerance
+behavior (absorbs noise, doesn't hide real drift), int/float bucket
+tolerance, bool exclusion per `lessons.md#python`, DriftRecord immutability.
+Full suite: 96 pass (was 78).
 
 ---
 

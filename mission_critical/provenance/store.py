@@ -6,12 +6,58 @@ import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 
 NCT_RE = re.compile(r"^NCT\d{8}$")
 PMID_RE = re.compile(r"^\d{1,9}$")
 DOI_RE = re.compile(r"^10\.\d{4,9}/[^\s]+$")
+
+
+# Drift classification — richer than raw diff_values tuples. See
+# classify_diffs() below. "numeric_noise" is filtered out when
+# float_tol is nonzero, so it never appears in emitted records.
+ChangeClass = Literal["added", "null_transition", "type_changed", "value_changed"]
+
+
+@dataclass(frozen=True)
+class DriftRecord:
+    key: str
+    old_value: Any
+    new_value: Any
+    change_class: ChangeClass
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key,
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "change_class": self.change_class,
+        }
+
+
+def _is_numeric(value: Any) -> bool:
+    """True for int or float, EXCLUDING bool (Python's isinstance quirk
+    per lessons.md#python)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _classify_change(old: Any, new: Any) -> ChangeClass:
+    """Categorize a key's change given old and new are known to differ.
+
+    Null transition wins over type change (semantically clearer: "we lost
+    a value" is more actionable than "type changed to NoneType"). Numeric
+    type flips (int↔float) are NOT type_changed — same semantic bucket.
+    """
+    if old is None or new is None:
+        return "null_transition"
+    old_numeric = _is_numeric(old)
+    new_numeric = _is_numeric(new)
+    if old_numeric != new_numeric:
+        return "type_changed"
+    if not old_numeric and type(old) is not type(new):
+        return "type_changed"
+    return "value_changed"
 
 
 def _classify(identifier: str) -> str:
@@ -148,6 +194,61 @@ class ProvenanceStore:
             if old_val != new_val:
                 diffs[key] = (old_val, new_val)
         return diffs
+
+    def classify_diffs(
+        self,
+        identifier: str,
+        new_values: dict[str, Any],
+        *,
+        float_tol: float = 0.0,
+    ) -> list[DriftRecord]:
+        """Richer drift detector. Same match semantics as `diff_values`
+        (missing-in-new keys are NOT flagged), but each emitted record
+        carries a `change_class` and sub-threshold numeric drift is
+        filtered out when `float_tol > 0`.
+
+        Change classes emitted:
+          - "added"           — key not present in stored entry
+          - "null_transition" — old or new is None (extraction loss /
+                                recovery)
+          - "type_changed"    — type buckets differ (numeric vs
+                                non-numeric, or different non-numeric
+                                types). int↔float is NOT type_changed —
+                                same numeric bucket.
+          - "value_changed"   — different value, same type bucket, not
+                                within float_tol
+
+        Absorbs (returns no record for):
+          - Exact equality
+          - Both numeric and |old-new| <= float_tol
+        """
+        entry = self._entries.get(identifier)
+        if entry is None:
+            raise KeyError(f"Unknown identifier: {identifier!r}")
+        records: list[DriftRecord] = []
+        for key, new_val in new_values.items():
+            if key not in entry.values:
+                records.append(
+                    DriftRecord(key, None, new_val, "added")
+                )
+                continue
+            old_val = entry.values[key]
+            if old_val == new_val:
+                continue
+            # Filter numeric noise BEFORE classification. If both sides
+            # are numeric and within tolerance, emit nothing — the caller
+            # has declared they don't care about sub-threshold drift.
+            if (
+                float_tol > 0
+                and _is_numeric(old_val)
+                and _is_numeric(new_val)
+                and abs(old_val - new_val) <= float_tol
+            ):
+                continue
+            records.append(
+                DriftRecord(key, old_val, new_val, _classify_change(old_val, new_val))
+            )
+        return records
 
     def unverified(self) -> list[ProvenanceEntry]:
         return [e for e in self._entries.values() if not e.verified]
