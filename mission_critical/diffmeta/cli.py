@@ -5,11 +5,13 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 from mission_critical.diffmeta.engine import (
     DEFAULT_TOLERANCE,
     compare,
 )
+from mission_critical.tolerance_config import ToleranceConfig
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,15 +48,32 @@ def main(argv: list[str] | None = None) -> int:
         "--json", action="store_true",
         help="Emit full comparison as JSON on stdout.",
     )
+    cmp_p.add_argument(
+        "--tolerance-config", type=Path, default=None,
+        help=(
+            "Path to .diffmeta.yaml with per-measure/method/field "
+            "tolerances. Defaults to autodiscovery of `.diffmeta.yaml` "
+            "in CWD."
+        ),
+    )
 
     args = parser.parse_args(argv)
 
     if args.cmd == "compare":
+        # Resolve tolerance config: explicit path, then autodiscover in
+        # CWD, else None (falls back to legacy built-in multipliers).
+        tol_cfg: Optional[ToleranceConfig] = None
+        if args.tolerance_config is not None:
+            tol_cfg = ToleranceConfig.from_yaml(args.tolerance_config)
+        elif Path(".diffmeta.yaml").is_file():
+            tol_cfg = ToleranceConfig.from_yaml(".diffmeta.yaml")
+
         try:
             result = compare(
                 args.csv,
                 measure=args.measure, method=args.method,
                 tolerance=args.tolerance, rscript_path=args.rscript,
+                tolerance_config=tol_cfg,
             )
         except (FileNotFoundError, ValueError, RuntimeError) as e:
             print(f"diffmeta error: {e}", file=sys.stderr)

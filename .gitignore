@@ -11,6 +11,8 @@ dist/
 demo/corpus.json
 demo/prov.json
 demo/report.json
+demo/r.json
+demo/out/
 
 # Real corpuses live outside this repo (point at via --store arg)
 *.baseline.json

@@ -57,6 +57,34 @@ def main(argv: list[str] | None = None) -> int:
         help=f"Max allowed abs diff across numeric fields (default {DEFAULT_TOLERANCE:g}).",
     )
 
+    # export subcommands
+    exp_p = sub.add_parser(
+        "export", help="Export the baseline corpus to another format.",
+    )
+    exp_sub = exp_p.add_subparsers(dest="export_fmt", required=True)
+
+    rc_p = exp_sub.add_parser(
+        "rocrate",
+        help="Write an RO-Crate 1.2 dir with baseline + optional provenance + reports.",
+    )
+    rc_p.add_argument("out_dir", type=Path)
+    rc_p.add_argument(
+        "--provenance", type=Path, default=None,
+        help="Optional provenance.json to include in the crate.",
+    )
+    rc_p.add_argument(
+        "--report", action="append", default=[], type=Path,
+        help="Report file to include (repeatable).",
+    )
+    rc_p.add_argument("--name", default=None)
+    rc_p.add_argument("--description", default=None)
+
+    pr_p = exp_sub.add_parser(
+        "pytest-regressions",
+        help="Write one pytest-regressions num_regression fixture per paper.",
+    )
+    pr_p.add_argument("out_dir", type=Path)
+
     args = parser.parse_args(argv)
     store = BaselineStore(args.store)
 
@@ -149,6 +177,40 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {marker} {field_name}: {old} -> {new}  (|Δ| = {d:.2e})")
         print("VERDICT:", "EXCEEDS" if rpt.exceeds_tolerance else "WITHIN")
         return 1 if rpt.exceeds_tolerance else 0
+
+    if args.cmd == "export":
+        if args.export_fmt == "rocrate":
+            try:
+                from mission_critical.baseline.rocrate import build_crate
+            except ImportError as e:
+                print(f"baseline error: rocrate-py missing ({e})", file=sys.stderr)
+                return 2
+            try:
+                out = build_crate(
+                    args.store, args.out_dir,
+                    provenance_path=args.provenance,
+                    report_paths=args.report,
+                    name=args.name,
+                    description=args.description,
+                )
+            except (OSError, RuntimeError) as e:
+                print(f"baseline error: {e}", file=sys.stderr)
+                return 2
+            print(f"wrote RO-Crate to {out}")
+            return 0
+        if args.export_fmt == "pytest-regressions":
+            from mission_critical.baseline.pytest_regressions_adapter import (
+                export_to_pytest_regressions,
+            )
+            try:
+                paths = export_to_pytest_regressions(store, args.out_dir)
+            except (OSError, RuntimeError) as e:
+                print(f"baseline error: {e}", file=sys.stderr)
+                return 2
+            print(f"wrote {len(paths)} fixture(s) to {args.out_dir}")
+            for p in paths:
+                print(f"  {p.name}")
+            return 0
 
     return 2
 

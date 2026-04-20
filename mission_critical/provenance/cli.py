@@ -73,6 +73,17 @@ def main(argv: list[str] | None = None) -> int:
     unv_p = sub.add_parser("unverified", help="List entries that aren't human-verified.")
     unv_p.add_argument("--fail", action="store_true", help="Exit 1 if any unverified.")
 
+    exp_p = sub.add_parser(
+        "export",
+        help="Export the provenance store to another format.",
+    )
+    exp_sub = exp_p.add_subparsers(dest="export_fmt", required=True)
+    prov_p = exp_sub.add_parser(
+        "prov-o",
+        help="Emit W3C PROV-O JSON-LD for interop with Whole Tale / RO-Crate / ELN.",
+    )
+    prov_p.add_argument("out_path", type=Path)
+
     args = parser.parse_args(argv)
     store = ProvenanceStore(args.store)
 
@@ -149,6 +160,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.fail:
             return 1
         return 0
+
+    if args.cmd == "export":
+        if args.export_fmt == "prov-o":
+            from mission_critical.provenance.prov import write_prov_o
+            try:
+                out = write_prov_o(store, args.out_path)
+            except (OSError, RuntimeError) as e:
+                print(f"provenance error: {e}", file=sys.stderr)
+                return 2
+            print(f"wrote PROV-O JSON-LD to {out}")
+            return 0
 
     return 2
 

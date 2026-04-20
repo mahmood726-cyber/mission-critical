@@ -14,6 +14,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-timeout>=2.0"]
+# Optional interoperability extras. Each is independently pip-installable.
+# `pip install mission-critical[interop]` pulls them all.
+yaml = ["PyYAML>=6.0"]                        # ToleranceConfig + pytest-regressions adapter
+rocrate = ["rocrate>=0.15"]                   # baseline export rocrate
+pytest-regressions = ["PyYAML>=6.0"]          # adapter only needs yaml
+interop = ["PyYAML>=6.0", "rocrate>=0.15"]    # all of the above
 
 [project.scripts]
 diffmeta = "mission_critical.diffmeta.cli:main"

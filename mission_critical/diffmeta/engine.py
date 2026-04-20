@@ -55,6 +55,8 @@ from scipy import optimize
 from scipy import stats
 from scipy.special import gammaln
 
+from mission_critical.tolerance_config import ToleranceConfig
+
 
 Measure = Literal["OR", "SMD", "GEN"]
 Method = Literal["FE", "DL", "REML", "HKSJ"]
@@ -492,12 +494,17 @@ def compare(
     method: Method = "FE",
     tolerance: float = DEFAULT_TOLERANCE,
     rscript_path: Optional[str] = None,
+    tolerance_config: Optional[ToleranceConfig] = None,
 ) -> ComparisonResult:
     """Run both engines on the same CSV and compare their output.
 
-    Uses per-field tolerance: tau^2 and I^2 get scaled tolerances to
-    reflect their propagation-from-REML-optimizer character. All other
-    fields (estimate, SE, CI bounds, z/t, Q) use the strict `tolerance`.
+    Tolerance behavior:
+      - If `tolerance_config` is supplied, its per-measure/per-method/
+        per-field multipliers are used. See `tolerance_config` module.
+      - Otherwise falls back to the legacy built-in multipliers: FE/DL
+        strict at `tolerance`; REML/HKSJ get scaled tolerances on
+        SE/CI/z (10x) and tau^2/I^2 (100x/10000x) to absorb scipy-vs-
+        metafor REML optimizer precision.
     """
     csv_path = Path(csv_path)
     rows = _read_rows(csv_path)
@@ -519,20 +526,28 @@ def compare(
 
     fields = ("estimate", "se", "ci_lower", "ci_upper", "z_or_t",
               "q", "tau2", "i2")
-    # Iterative methods (REML, HKSJ) get relaxed tolerances for fields
-    # that compound tau^2 optimizer precision. Closed-form methods
-    # (FE, DL) hit strict base tolerance on everything.
-    mults = (
-        _FIELD_TOLERANCE_MULTIPLIERS_RE
-        if method in ("REML", "HKSJ")
-        else _FIELD_TOLERANCE_MULTIPLIERS_FE
-    )
+    # Either use the supplied ToleranceConfig or fall back to built-in
+    # multipliers (legacy path).
+    if tolerance_config is not None:
+        # ToleranceConfig's base_tolerance overrides caller's `tolerance`
+        # unless the caller supplied a non-default tolerance explicitly.
+        def _tol(field_name: str) -> float:
+            return tolerance_config.tolerance_for(field_name, measure, method)
+    else:
+        legacy_mults = (
+            _FIELD_TOLERANCE_MULTIPLIERS_RE
+            if method in ("REML", "HKSJ")
+            else _FIELD_TOLERANCE_MULTIPLIERS_FE
+        )
+        def _tol(field_name: str) -> float:
+            return tolerance * legacy_mults.get(field_name, 1.0)
+
     diffs: dict[str, float] = {}
     diverges = False
     for f in fields:
         d = abs(getattr(py, f) - getattr(r, f))
         diffs[f] = d
-        field_tol = tolerance * mults.get(f, 1.0)
+        field_tol = _tol(f)
         if d > field_tol:
             diverges = True
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,17 @@ DEFAULT_TOLERANCE = 1e-6
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _new_claim_id() -> str:
+    """Generate a persistent, URL-safe claim ID (HEPData-style).
+
+    Short form: `cl_<8 hex>` — 32 bits of entropy, collision probability
+    negligible for a single researcher's corpus. Survives paper_id renames,
+    title changes, path moves. The ID, not the paper_id, is the stable
+    reference for citations and cross-repo references.
+    """
+    return "cl_" + uuid.uuid4().hex[:8]
 
 
 @dataclass
@@ -35,13 +47,23 @@ class BaselineRecord:
     # (e.g. SUCRA for NMA, fragility index, prediction interval
     # bounds). Keys must be strings; values must be numeric.
     extra: dict[str, float] = field(default_factory=dict)
+    # Persistent claim ID (HEPData pattern). Auto-assigned on new
+    # records. Outlives paper_id renames, so a paper cited as cl_abcd1234
+    # remains traceable even if the paper_id changes from
+    # "sglt2i-hfpef-v1.0" to "sglt2i-hfpef-v1.1".
+    claim_id: str = field(default_factory=_new_claim_id)
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "BaselineRecord":
-        return cls(**d)
+        # Filter unknown keys so old or future schemas don't crash.
+        # A pre-claim_id record on disk won't have `claim_id`; the
+        # default factory will mint one on load (one-shot migration).
+        known = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in d.items() if k in known}
+        return cls(**filtered)
 
     def numeric_fields(self) -> dict[str, float]:
         """All numeric fields flattened for diff comparison."""
@@ -121,12 +143,20 @@ class BaselineStore:
         *,
         commit_sha: str | None = None,
         overwrite: bool = False,
+        claim_id: str | None = None,
         **numeric_fields: Any,
     ) -> BaselineRecord:
         if paper_id in self._records and not overwrite:
             raise KeyError(
                 f"Paper {paper_id!r} already recorded. Use overwrite=True to replace."
             )
+        # On overwrite, preserve the existing claim_id so the stable
+        # reference survives paper_id rename or re-record. On first record,
+        # take an explicitly-supplied claim_id or let the dataclass default
+        # factory assign a fresh one.
+        if overwrite and paper_id in self._records and claim_id is None:
+            claim_id = self._records[paper_id].claim_id
+
         known = {
             "pooled_estimate", "ci_lower", "ci_upper", "se",
             "i2", "tau2", "q", "k",
@@ -136,13 +166,16 @@ class BaselineStore:
             k: float(v) for k, v in numeric_fields.items()
             if k not in known and v is not None
         }
-        rec = BaselineRecord(
+        ctor_kwargs: dict[str, Any] = dict(
             paper_id=paper_id,
             recorded_at=_utc_now(),
             commit_sha=commit_sha,
             extra=extra,
             **kwargs,
         )
+        if claim_id is not None:
+            ctor_kwargs["claim_id"] = claim_id
+        rec = BaselineRecord(**ctor_kwargs)
         self._records[paper_id] = rec
         return rec
 
