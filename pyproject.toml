@@ -4,9 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mission-critical"
-version = "0.1.0"
+version = "0.2.0"
 description = "Moon-mission-grade guards for scientific meta-analysis workflows."
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Mahmood Ahmad" }]
 dependencies = [
     "numpy>=1.24",
     "scipy>=1.11",  # REML optimization + t-distribution CDF
