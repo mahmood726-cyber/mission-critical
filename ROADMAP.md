@@ -5,63 +5,43 @@ Each is adjacent to MissionCritical but substantial enough that
 half-shipping would be worse than not shipping. Add at v0.3+ after the
 methods paper has a target venue.
 
-## 1. Replace HMAC with `sigstore/cosign` keyless signing
+## 1. Pluggable CertBundle signers (HMAC → Ed25519/Sigstore) — SHIPPED 2026-04-18
 
-### What this replaces
+### Status
 
-Overmind's TruthCert bundles are currently HMAC-signed with a secret
-read from `TRUTHCERT_HMAC_KEY`. The 2026-04-19 security review found:
+Shipped in `overmind/verification/signers.py` + refactored `cert_bundle.py`.
+Three signing methods, selected per-environment:
 
-- Key wasn't actually set in the Task Scheduler environment, so the
-  "policy says signed, reality ships unsigned" failure mode was live.
-- Shared-secret keys don't scale beyond one user, and the `lessons.md`
-  entry *Cryptography / Signing (2026-04-14)* already documents that
-  HMAC-key-from-bundle is a forgery vector.
+- **Ed25519** (preferred default): local keypair, no shared secret, works
+  offline. The Windows-laptop-scheduled-task case that blocked cosign OIDC
+  plumbing in the original roadmap entry. Private key on disk (chmod 600 on
+  POSIX), public key embedded in each signed bundle.
+- **HMAC-SHA256**: legacy, retained for backward-compat with archived
+  nightly outputs. Deprecated-not-removed.
+- **Sigstore keyless** (CI / release only): keeps the original cosign path
+  for environments that *do* have OIDC identity plumbing (GitHub Actions).
 
-### Design
+Selection precedence (see `signers.select_signer()`):
 
-Replace HMAC with `cosign sign-blob` using OIDC keyless mode. cosign
-authenticates the signing identity against a trusted OIDC provider
-(GitHub, Google, etc.) and uses the ephemeral-key transparency log
-(Rekor) for public verification. No shared secret to leak.
+1. Explicit `OVERMIND_SIGN_METHOD=ed25519|hmac|sigstore|none`
+2. `OVERMIND_ED25519_KEY` set → Ed25519
+3. `TRUTHCERT_HMAC_KEY` set → HMAC
+4. `SIGSTORE_ID_TOKEN` set → Sigstore
+5. Unsigned (logged warning, dev-mode only)
 
-Implementation sketch:
+### Tests
 
-    # Producer (Overmind nightly):
-    cosign sign-blob --bundle bundle.sig \
-        --identity-token "$OIDC_TOKEN" \
-        overmind-bundle.json
+32 tests across `test_signers.py` (16) + `test_cert_bundle_signers.py` (9)
++ `test_cert_bundle_hmac.py` (7, preserved untouched for regression).
 
-    # Consumer (anyone verifying the bundle):
-    cosign verify-blob \
-        --bundle bundle.sig \
-        --certificate-identity <expected-subject> \
-        --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-        overmind-bundle.json
+### What was NOT done vs original roadmap
 
-Python glue: `python-sigstore` (https://pypi.org/project/sigstore/)
-provides the same primitives as the `cosign` CLI. Estimate: ~200 LOC
-in `overmind/verification/cert_bundle.py`, replacing the HMAC compute
-+ the `TRUTHCERT_HMAC_KEY` env read.
-
-### Migration
-
-1. Generate both HMAC and cosign signatures in parallel for one
-   release cycle.
-2. Verify-in-CI that both agree on identity (`<some wrapper comparing
-   the two>`).
-3. Drop HMAC; cosign becomes canonical.
-
-### Estimated effort
-
-1 focused day. Out-of-scope blocker is OIDC identity plumbing on a
-Windows-laptop scheduled task, which requires a GitHub App or personal
-access token flow.
-
-### Why deferred
-
-Not a single-session task. Current HMAC implementation is functional
-when the key is set. Priority is lower than the methods-paper path.
+The "dual-sign + parallel-verify migration" proposed in the original
+roadmap entry was skipped. The new design is strictly additive: existing
+HMAC-signed bundles on disk still verify (legacy-method fallback), and
+there are no HMAC bundles to migrate off of once a deployment flips to
+Ed25519. Net: 1 focused session, not 1 focused day, because Ed25519
+removed the blocker (no OIDC plumbing needed on Windows laptop).
 
 ---
 
