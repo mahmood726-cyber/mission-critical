@@ -45,49 +45,61 @@ removed the blocker (no OIDC plumbing needed on Windows laptop).
 
 ---
 
-## 2. Claude Agent SDK hook integration
+## 2. Claude Agent SDK PreToolUse hook adapter — SHIPPED 2026-04-18
 
-### What this buys
+### Status
 
-Sentinel currently runs at `git push` time. The Claude Agent SDK
-(`anthropics/claude-agent-sdk-python`, released 2025) exposes
-pre-tool-call and post-tool-call hooks that fire *inside* an agent's
-execution loop — much finer granularity than a pre-push hook.
+Shipped in `sentinel/adapters/claude_agent_hooks.py` (`Sentinel@3062e60`).
+Originally deferred pending SDK 1.0; SDK 0.1.63's PreToolUse hook API
+(`HookMatcher`, `PreToolUseHookInput`, `SyncHookJSONOutput`,
+`PreToolUseHookSpecificOutput`) is stable enough to adapt to now.
 
-Use cases:
+Tool coverage (Write, Edit, Bash), with the ported checks:
 
-- Block a `Write` tool call that would modify a `sentinel:skip-file`-
-  marked file when the agent has no justification.
-- Run `baseline diff` *before* the agent commits, not after — prevents
-  drift from ever landing in a commit.
-- Fire on `Bash` tool calls that try to `SENTINEL_BYPASS=1 git push`,
-  log the attempt even when the hook would normally permit bypass.
+- **P0-hardcoded-local-path** — regex on proposed file content (Write)
+  or `new_string` (Edit), same YAML rule pattern, same excluded-path
+  list (wiki/, tests/, data/nightly_reports/, …).
+- **P0-placeholder-hmac** — blocks `SIG_RSA_SHA256_PLACEHOLDER`-style
+  stubs that claim signed-ness without delivering.
+- **P0-claude-config-committed** — blocks Write/Edit into `.claude/`
+  (allows the gitignored `.claude/settings.local.json`).
+- **P0-sentinel-bypass-attempt** (NEW) — blocks
+  `SENTINEL_BYPASS=1 git push` in Bash calls inside the agent loop.
+  The pre-push hook logs the bypass but still allows; catching it in
+  the SDK loop gives the agent a chance to diagnose rather than
+  quietly shipping a violation.
 
-### Design
+### Design choices
 
-Wrap Sentinel's rule set in a hook adapter:
+- Single async callback factory `sentinel_pretool_hook()` — users
+  register it via `HookMatcher(matcher="Write|Edit|Bash", hooks=[...])`.
+- No dependency on the SDK at import time (`claude-agent-sdk` is a
+  declared-optional dep). Sentinel's core test path stays SDK-free.
+- Emits BOTH legacy `decision="block"` + modern
+  `hookSpecificOutput.permissionDecision="deny"` for SDK-version
+  tolerance.
+- Fails open on internal exceptions — a buggy rule must not wedge an
+  agent run. Log loudly, allow the call.
+- Respects `sentinel:skip-file` markers.
 
-    from claude_agent_sdk import ClaudeAgent
-    from sentinel.adapters import sentinel_pretool_hook
+### What was NOT done vs original roadmap
 
-    agent = ClaudeAgent(
-        pre_tool_call=sentinel_pretool_hook(
-            rules=["P0-hardcoded-local-path", "P0-baseline-drift"],
-            repo_root="."
-        ),
-    )
+- Portfolio-wide / cross-file rules (registry drift, blueprint-match)
+  still only run at push-time. PreToolUse is per-tool-call; those need
+  full repo context and would waste work on every tool call.
+- PostToolUse hook (inspect what the agent actually wrote) not
+  included — add only if a gap opens where a violation bypasses the
+  pre-call check.
+- `baseline diff` integration from the roadmap sketch is deferred.
+  Baseline drift is a repo-scan check; wiring it into PreToolUse would
+  require keeping an in-memory baseline cache per agent session. Real
+  use case hasn't surfaced yet.
 
-### Blocked on
+### Tests
 
-Claude Agent SDK's hook API stability. As of 2026-04-20 the SDK is
-active development; hook contract may change. Better to wait for
-1.0 release before building the Sentinel adapter. Worth 1 week.
-
-### Why deferred
-
-SDK not yet 1.0, so building against it risks rework. Adapter is
-speculative until a real use case surfaces where push-time enforcement
-isn't enough.
+36 tests: 32 unit (content checks + async dispatch + fail-open) + 4
+integration (SDK-shape-conformance, skipped when SDK not installed).
+Sentinel suite: 390 pass / 1 skip (was 354 pre-adapter).
 
 ---
 
