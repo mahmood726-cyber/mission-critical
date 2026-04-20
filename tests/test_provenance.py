@@ -299,3 +299,44 @@ def test_drift_record_is_frozen():
     r = DriftRecord(key="N", old_value=1, new_value=2, change_class="value_changed")
     with pytest.raises(AttributeError):
         r.key = "X"  # type: ignore[misc]
+
+
+def test_classify_diffs_both_nan_absorbed(tmp_path: Path):
+    """Review P2-4: NaN in extraction context usually means 'parse failed'.
+    Two NaNs in the same slot means parse failed both times — not drift."""
+    import math
+    store = ProvenanceStore(tmp_path / "p.json")
+    store.add(
+        "NCT00095238", source="a", extractor="human",
+        values={"HR": math.nan},
+    )
+    records = store.classify_diffs("NCT00095238", {"HR": math.nan})
+    assert records == [], "NaN→NaN must not surface as drift"
+
+
+def test_classify_diffs_nan_to_value_is_null_transition(tmp_path: Path):
+    """NaN → real value is recovery from parse failure — null_transition,
+    not type_changed."""
+    import math
+    store = ProvenanceStore(tmp_path / "p.json")
+    store.add(
+        "NCT00095238", source="a", extractor="human",
+        values={"HR": math.nan},
+    )
+    records = store.classify_diffs("NCT00095238", {"HR": 0.80})
+    assert len(records) == 1
+    assert records[0].change_class == "null_transition"
+
+
+def test_classify_diffs_value_to_nan_is_null_transition(tmp_path: Path):
+    """Real value → NaN is loss of extraction — null_transition, not
+    type_changed."""
+    import math
+    store = ProvenanceStore(tmp_path / "p.json")
+    store.add(
+        "NCT00095238", source="a", extractor="human",
+        values={"HR": 0.80},
+    )
+    records = store.classify_diffs("NCT00095238", {"HR": math.nan})
+    assert len(records) == 1
+    assert records[0].change_class == "null_transition"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -40,6 +41,13 @@ def _is_numeric(value: Any) -> bool:
     """True for int or float, EXCLUDING bool (Python's isinstance quirk
     per lessons.md#python)."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_nan(value: Any) -> bool:
+    """True iff value is NaN. In extraction land NaN typically means
+    'parse failed', which is semantically None — NOT a real data value.
+    Review P2-4."""
+    return isinstance(value, float) and math.isnan(value)
 
 
 def _classify_change(old: Any, new: Any) -> ChangeClass:
@@ -233,6 +241,17 @@ class ProvenanceStore:
                 )
                 continue
             old_val = entry.values[key]
+            # NaN canonicalization: treat NaN as semantically None. Both-NaN
+            # absorbs silently; NaN on one side becomes null_transition via
+            # _classify_change. Review P2-4.
+            old_nan = _is_nan(old_val)
+            new_nan = _is_nan(new_val)
+            if old_nan and new_nan:
+                continue
+            if old_nan:
+                old_val = None
+            if new_nan:
+                new_val = None
             if old_val == new_val:
                 continue
             # Filter numeric noise BEFORE classification. If both sides
@@ -245,6 +264,10 @@ class ProvenanceStore:
                 and abs(old_val - new_val) <= float_tol
             ):
                 continue
+            # NOTE: nested dict / list drift is NOT drilled-into. old={"a":1}
+            # vs new={"a":2} reports the whole dict as value_changed. Current
+            # provenance scope is flat (N, HR, dates); re-evaluate if nested
+            # structures enter the store. Review P2-5.
             records.append(
                 DriftRecord(key, old_val, new_val, _classify_change(old_val, new_val))
             )
