@@ -163,6 +163,7 @@ def test_python_engine_applies_conditional_continuity(tmp_path: Path):
     the one that biases OR -> 1 and is explicitly NOT what we want.
     """
     import numpy as np
+
     from mission_critical.diffmeta.engine import _apply_continuity_correction
 
     ai = np.array([0, 10])

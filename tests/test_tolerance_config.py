@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from mission_critical.tolerance_config import (
     DEFAULT_BASE_TOLERANCE,
     ToleranceConfig,

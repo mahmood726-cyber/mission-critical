@@ -147,8 +147,9 @@ def test_smd_effects_match_hand_calc():
     """Hedges' g with EXACT gamma J correction — matches metafor."""
     import math
 
-    from mission_critical.diffmeta.engine import _effects_smd
     from scipy.special import gammaln
+
+    from mission_critical.diffmeta.engine import _effects_smd
 
     row = {"n1i": 30, "m1i": 10.2, "sd1i": 3.1, "n2i": 30, "m2i": 8.7, "sd2i": 3.4}
     yi, vi = _effects_smd([row])
@@ -170,6 +171,7 @@ def test_smd_effects_match_hand_calc():
 def test_tau2_dl_zero_when_no_heterogeneity():
     """When Q <= k-1, DL tau^2 floors at 0 — canonical Cochrane behavior."""
     import numpy as np
+
     from mission_critical.diffmeta.engine import _tau2_dl
 
     # 3 studies with identical y and v = identical weights = Q=0
@@ -181,6 +183,7 @@ def test_tau2_dl_zero_when_no_heterogeneity():
 def test_tau2_reml_positive_on_heterogeneous():
     """REML tau^2 should be > 0 when studies clearly disagree."""
     import numpy as np
+
     from mission_critical.diffmeta.engine import _tau2_reml
 
     yi = np.array([-0.8, -0.1, 0.3, 0.9])

@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+
 from mission_critical.baseline.pytest_regressions_adapter import (
     export_to_pytest_regressions,
     import_from_pytest_regressions_yaml,
