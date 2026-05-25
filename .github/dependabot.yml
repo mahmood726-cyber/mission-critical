@@ -1,0 +1,25 @@
+# Dependabot keeps Python deps + GitHub Actions versions current.
+# Auto-opened PRs are gated by .github/workflows/ci.yml (ruff + pytest).
+#
+# Tweak `open-pull-requests-limit` if the PR queue gets noisy.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+      include: "scope"
