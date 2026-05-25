@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-
 NCT_RE = re.compile(r"^NCT\d{8}$")
 PMID_RE = re.compile(r"^\d{1,9}$")
 DOI_RE = re.compile(r"^10\.\d{4,9}/[^\s]+$")
@@ -113,7 +112,7 @@ class ProvenanceEntry:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "ProvenanceEntry":
+    def from_dict(cls, d: dict) -> ProvenanceEntry:
         return cls(**d)
 
 

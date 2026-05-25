@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-
 # --- skip conditions ---------------------------------------------------
 
 def _rscript_path() -> str | None:
@@ -146,8 +145,9 @@ def test_gen_pooling_matches_metafor(tmp_path: Path, method: str):
 
 def test_smd_effects_match_hand_calc():
     """Hedges' g with EXACT gamma J correction — matches metafor."""
-    from mission_critical.diffmeta.engine import _effects_smd
     import math
+
+    from mission_critical.diffmeta.engine import _effects_smd
     from scipy.special import gammaln
 
     row = {"n1i": 30, "m1i": 10.2, "sd1i": 3.1, "n2i": 30, "m2i": 8.7, "sd2i": 3.4}
@@ -169,8 +169,8 @@ def test_smd_effects_match_hand_calc():
 
 def test_tau2_dl_zero_when_no_heterogeneity():
     """When Q <= k-1, DL tau^2 floors at 0 — canonical Cochrane behavior."""
-    from mission_critical.diffmeta.engine import _tau2_dl
     import numpy as np
+    from mission_critical.diffmeta.engine import _tau2_dl
 
     # 3 studies with identical y and v = identical weights = Q=0
     yi = np.array([0.5, 0.5, 0.5])
@@ -180,8 +180,8 @@ def test_tau2_dl_zero_when_no_heterogeneity():
 
 def test_tau2_reml_positive_on_heterogeneous():
     """REML tau^2 should be > 0 when studies clearly disagree."""
-    from mission_critical.diffmeta.engine import _tau2_reml
     import numpy as np
+    from mission_critical.diffmeta.engine import _tau2_reml
 
     yi = np.array([-0.8, -0.1, 0.3, 0.9])
     vi = np.array([0.04, 0.03, 0.04, 0.05])
@@ -191,7 +191,7 @@ def test_tau2_reml_positive_on_heterogeneous():
 
 def test_hksj_uses_t_distribution():
     """HKSJ pooled result carries the uses_t_distribution flag."""
-    from mission_critical.diffmeta.engine import _python_pool, _effects_gen
+    from mission_critical.diffmeta.engine import _effects_gen, _python_pool
 
     rows = [{"yi": y, "vi": v} for y, v in
             [(-0.4, 0.02), (-0.3, 0.03), (-0.5, 0.02), (-0.1, 0.04)]]
@@ -203,7 +203,7 @@ def test_hksj_uses_t_distribution():
 
 def test_fe_result_has_zero_tau2_and_i2():
     """FE pooling must produce tau2=0 and treat i2 consistently."""
-    from mission_critical.diffmeta.engine import _python_pool, _effects_gen
+    from mission_critical.diffmeta.engine import _effects_gen, _python_pool
     rows = [{"yi": y, "vi": v} for y, v in
             [(-0.4, 0.02), (-0.3, 0.03), (-0.5, 0.02)]]
     yi, vi = _effects_gen(rows)

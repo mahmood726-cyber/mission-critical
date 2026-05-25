@@ -20,7 +20,6 @@ from pathlib import Path
 
 import pytest
 
-
 # --- skip conditions ---------------------------------------------------
 
 def _rscript_path() -> str | None:
@@ -133,7 +132,8 @@ def test_python_engine_deterministic_on_known_values(tmp_path: Path):
     Inverse-variance FE pooling.
     """
     import math
-    from mission_critical.diffmeta.engine import _python_pool, _effects_or
+
+    from mission_critical.diffmeta.engine import _effects_or, _python_pool
 
     rows = [
         {"ai": 10, "bi": 90, "ci": 20, "di": 75},
@@ -162,8 +162,8 @@ def test_python_engine_applies_conditional_continuity(tmp_path: Path):
     Unconditional correction (adding 0.5 to every study regardless) is
     the one that biases OR -> 1 and is explicitly NOT what we want.
     """
-    from mission_critical.diffmeta.engine import _apply_continuity_correction
     import numpy as np
+    from mission_critical.diffmeta.engine import _apply_continuity_correction
 
     ai = np.array([0, 10])
     bi = np.array([50, 90])

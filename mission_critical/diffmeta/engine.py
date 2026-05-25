@@ -46,17 +46,15 @@ import os
 import subprocess
 import sys
 import tempfile
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
-from scipy import optimize
-from scipy import stats
+from scipy import optimize, stats
 from scipy.special import gammaln
 
 from mission_critical.tolerance_config import ToleranceConfig
-
 
 Measure = Literal["OR", "SMD", "GEN"]
 Method = Literal["FE", "DL", "REML", "HKSJ"]
@@ -493,8 +491,8 @@ def compare(
     measure: Measure = "OR",
     method: Method = "FE",
     tolerance: float = DEFAULT_TOLERANCE,
-    rscript_path: Optional[str] = None,
-    tolerance_config: Optional[ToleranceConfig] = None,
+    rscript_path: str | None = None,
+    tolerance_config: ToleranceConfig | None = None,
 ) -> ComparisonResult:
     """Run both engines on the same CSV and compare their output.
 
@@ -567,7 +565,7 @@ def compare(
 def compare_binary_or(
     csv_path: Path | str,
     *, tolerance: float = DEFAULT_TOLERANCE,
-    rscript_path: Optional[str] = None,
+    rscript_path: str | None = None,
 ) -> ComparisonResult:
     """Backward-compat: OR + FE. Equivalent to `compare(..., measure='OR', method='FE')`."""
     return compare(

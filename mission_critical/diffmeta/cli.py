@@ -5,7 +5,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 from mission_critical.diffmeta.engine import (
     DEFAULT_TOLERANCE,
@@ -62,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "compare":
         # Resolve tolerance config: explicit path, then autodiscover in
         # CWD, else None (falls back to legacy built-in multipliers).
-        tol_cfg: Optional[ToleranceConfig] = None
+        tol_cfg: ToleranceConfig | None = None
         if args.tolerance_config is not None:
             tol_cfg = ToleranceConfig.from_yaml(args.tolerance_config)
         elif Path(".diffmeta.yaml").is_file():

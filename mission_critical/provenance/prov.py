@@ -22,7 +22,6 @@ from typing import Any
 
 from mission_critical.provenance.store import ProvenanceStore
 
-
 PROV_CONTEXT = "https://www.w3.org/ns/prov"
 
 

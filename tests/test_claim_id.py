@@ -3,9 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from mission_critical.baseline.store import BaselineRecord, BaselineStore
+from mission_critical.baseline.store import BaselineStore
 
 
 def test_new_record_gets_auto_claim_id(tmp_path: Path):

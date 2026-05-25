@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_TOLERANCE = 1e-6
 
 
@@ -57,7 +56,7 @@ class BaselineRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict) -> "BaselineRecord":
+    def from_dict(cls, d: dict) -> BaselineRecord:
         # Filter unknown keys so old or future schemas don't crash.
         # A pre-claim_id record on disk won't have `claim_id`; the
         # default factory will mint one on load (one-shot migration).

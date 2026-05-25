@@ -96,11 +96,11 @@ class ToleranceConfig:
         return self.base_tolerance
 
     @classmethod
-    def default(cls) -> "ToleranceConfig":
+    def default(cls) -> ToleranceConfig:
         return cls()
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "ToleranceConfig":
+    def from_yaml(cls, path: Path | str) -> ToleranceConfig:
         if not _HAS_YAML:
             raise RuntimeError(
                 "PyYAML required to load .diffmeta.yaml (pip install pyyaml)"
@@ -117,7 +117,7 @@ class ToleranceConfig:
         return cls._from_dict(data)
 
     @classmethod
-    def _from_dict(cls, data: dict[str, Any]) -> "ToleranceConfig":
+    def _from_dict(cls, data: dict[str, Any]) -> ToleranceConfig:
         base = float(data.get("base_tolerance", DEFAULT_BASE_TOLERANCE))
         method_mults: dict[str, dict[str, float]] = {}
         for method, overrides in (data.get("methods") or {}).items():
@@ -140,7 +140,7 @@ class ToleranceConfig:
         )
 
     @classmethod
-    def from_repo(cls, repo_root: Path | str) -> "ToleranceConfig":
+    def from_repo(cls, repo_root: Path | str) -> ToleranceConfig:
         """Look for `.diffmeta.yaml` at repo root; return default if missing."""
         path = Path(repo_root) / ".diffmeta.yaml"
         if not path.is_file():

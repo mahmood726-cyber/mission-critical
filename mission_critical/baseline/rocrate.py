@@ -18,7 +18,6 @@ from pathlib import Path
 
 from mission_critical.baseline.store import BaselineStore
 
-
 try:
     from rocrate.rocrate import ROCrate  # type: ignore[import-untyped]
     _HAS_ROCRATE = True

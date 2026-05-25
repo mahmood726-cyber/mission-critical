@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from mission_critical.baseline.rocrate import build_crate
 from mission_critical.baseline.store import BaselineStore
 

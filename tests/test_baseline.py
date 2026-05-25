@@ -1,13 +1,10 @@
 """Tests for numerical baseline corpus."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
-
 from mission_critical.baseline.store import (
-    DEFAULT_TOLERANCE,
     BaselineRecord,
     BaselineStore,
 )

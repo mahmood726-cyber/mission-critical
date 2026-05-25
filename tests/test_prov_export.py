@@ -4,10 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from mission_critical.provenance.store import ProvenanceStore
 from mission_critical.provenance.prov import store_to_prov_o, write_prov_o
+from mission_critical.provenance.store import ProvenanceStore
 
 
 def test_prov_export_structure(tmp_path: Path):
