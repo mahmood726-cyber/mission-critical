@@ -35,3 +35,15 @@ exclude = ["tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "B", "C4", "I", "N", "UP", "SIM", "PIE", "RET", "RUF"]
+ignore = ["E501", "B011", "N812", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["B", "N802", "N803", "N806", "RUF"]
+"conftest.py" = ["B", "N802", "N803", "N806"]
