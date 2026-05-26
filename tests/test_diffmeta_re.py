@@ -20,18 +20,9 @@ import pytest
 # --- skip conditions ---------------------------------------------------
 
 def _rscript_path() -> str | None:
-    env = os.environ.get("RSCRIPT_PATH")
-    if env and shutil.which(env):
-        return env
-    candidates = []
-    if sys.platform == "win32":
-        candidates.append(r"C:/Program Files/R/R-4.5.2/bin/Rscript.exe")
-        candidates.append(r"C:/Program Files/R/R-4.5.1/bin/Rscript.exe")
-    candidates.append(shutil.which("Rscript"))
-    for c in candidates:
-        if c and Path(c).is_file():
-            return c
-    return None
+    from mission_critical.diffmeta.engine import resolve_rscript_path
+
+    return resolve_rscript_path()
 
 
 def _metafor_available(rscript: str) -> bool:

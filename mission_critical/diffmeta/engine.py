@@ -43,6 +43,7 @@ import csv
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -59,14 +60,56 @@ from mission_critical.tolerance_config import ToleranceConfig
 Measure = Literal["OR", "SMD", "GEN"]
 Method = Literal["FE", "DL", "REML", "HKSJ"]
 
-DEFAULT_RSCRIPT = (
-    r"C:/Program Files/R/R-4.5.2/bin/Rscript.exe"
-    if sys.platform == "win32" else "Rscript"
+WINDOWS_RSCRIPT_CANDIDATES = (
+    r"C:/Program Files/R/R-4.5.2/bin/Rscript.exe",
+    r"C:/Program Files/R/R-4.5.1/bin/Rscript.exe",
+    r"C:/Program Files/R/R-4.5.0/bin/Rscript.exe",
+    r"C:/Program Files/R/R-4.4.3/bin/Rscript.exe",
 )
+DEFAULT_RSCRIPT = "Rscript"
 DEFAULT_TOLERANCE = 1e-6
 
 # z-critical for 95% CI (two-sided, same to 15 decimals as R qnorm(0.975))
 Z_95 = 1.959963984540054
+
+
+def resolve_rscript_path(
+    explicit_path: str | None = None,
+    *,
+    require_exists: bool = False,
+) -> str | None:
+    """Resolve an Rscript executable path from explicit, env, PATH, or common installs."""
+    candidates: list[str] = []
+    if explicit_path:
+        candidates.append(explicit_path)
+    env = os.environ.get("RSCRIPT_PATH")
+    if env:
+        candidates.append(env)
+    path_hit = shutil.which("Rscript")
+    if path_hit:
+        candidates.append(path_hit)
+    if sys.platform == "win32":
+        candidates.extend(WINDOWS_RSCRIPT_CANDIDATES)
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        if shutil.which(candidate):
+            return candidate
+        if Path(candidate).is_file():
+            return candidate
+
+    if require_exists:
+        raise FileNotFoundError(
+            "Rscript executable not found. Pass --rscript, set RSCRIPT_PATH, "
+            "put Rscript on PATH, or install R in a standard location."
+        )
+    return None
 
 
 # =====================================================================
@@ -518,8 +561,7 @@ def compare(
     yi, vi = _EFFECT_FNS[measure](rows)
     py = _python_pool(yi, vi, method=method, measure=measure)
 
-    if rscript_path is None:
-        rscript_path = os.environ.get("RSCRIPT_PATH", DEFAULT_RSCRIPT)
+    rscript_path = resolve_rscript_path(rscript_path, require_exists=True)
     r = _r_pool(rows, measure, method, rscript_path)
 
     fields = ("estimate", "se", "ci_lower", "ci_upper", "z_or_t",

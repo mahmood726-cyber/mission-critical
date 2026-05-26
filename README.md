@@ -100,7 +100,7 @@ be used as `num_regression` / `data_regression` fixtures.
 - Python 3.11+, numpy
 - R 4.5+ with metafor package installed (`install.packages("metafor")`)
 - Environment variable `RSCRIPT_PATH` if Rscript isn't on PATH
-  (defaults to `C:/Program Files/R/R-4.5.2/bin/Rscript.exe` on Windows)
+  (common Windows R installs are auto-detected)
 
 ## Install
 
@@ -128,11 +128,11 @@ v0.2 — shipped. Coverage: {OR, SMD, GEN} × {FE, DL, REML, HKSJ} in
 pytest-regressions interop in `baseline`. 99 tests passing.
 
 Real-paper deployments:
-- `C:\Projects\repro-floor-atlas\baseline.json` — 14.3% reproducibility
-  benchmark (Pairwise70, 7,545 MAs)
-- `C:\Users\user\ma-workbench\baseline.json` — sglt2i-hfpef-v1.0 +
+- `repro-floor-atlas` baseline corpus — 14.3% reproducibility benchmark
+  (Pairwise70, 7,545 MAs)
+- `ma-workbench` baseline corpus — sglt2i-hfpef-v1.0 +
   precision-sweep-v1.0
-- `C:\Projects\dossiergap\provenance.json` — PARADIGM-HF, VICTORIA,
+- `dossiergap` provenance chain — PARADIGM-HF, VICTORIA,
   GRIPHON (HR values verified against published ground truth)
 
 ## License
