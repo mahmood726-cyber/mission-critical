@@ -1,0 +1,70 @@
+{
+  "// generated": "Workspace settings — keep in sync with ruff.toml + .editorconfig.",
+
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [88, 120]
+  },
+
+  "[javascript]": {
+    "editor.tabSize": 2,
+    "editor.rulers": [100]
+  },
+
+  "[typescript]": {
+    "editor.tabSize": 2,
+    "editor.rulers": [100]
+  },
+
+  "[json]": {
+    "editor.tabSize": 2,
+    "editor.formatOnSave": true
+  },
+
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "[markdown]": {
+    "editor.tabSize": 2,
+    "editor.trimAutoWhitespace": false,
+    "files.trimTrailingWhitespace": false
+  },
+
+  "python.analysis.typeCheckingMode": "basic",
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["-q"],
+  "python.testing.unittestEnabled": false,
+
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.eol": "\n",
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/coverage.xml": true,
+    "**/*.egg-info": true,
+    "**/.tmp.driveupload": true
+  },
+
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/coverage.xml": true,
+    "**/.tmp.driveupload": true,
+    "**/node_modules": true
+  }
+}
